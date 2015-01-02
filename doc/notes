@@ -1,1 +1,2 @@
 testing network performance: https://github.com/esnet/iperf
+note: use -b 0 with udp mode
