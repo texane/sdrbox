@@ -1,0 +1,2 @@
+#!/usr/bin/env sh
+RTLSDR_SERV_ADDR=127.0.0.1 RTLSDR_SERV_PORT=40000 ./a.out
