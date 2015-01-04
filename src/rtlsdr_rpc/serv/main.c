@@ -353,6 +353,7 @@ static void read_async_cb
 
   send_all(serv->cli_sock, (const uint8_t*)&fmt, off);
   send_all_check_recv(serv->cli_sock, buf, len, &is_recv);
+
   if (is_recv) rtlsdr_cancel_async(serv->dev);
 }
 
