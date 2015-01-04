@@ -568,6 +568,72 @@ static int handle_query
       break ;
     }
 
+  case RTLSDR_RPC_OP_SET_FREQ_CORRECTION:
+    {
+      uint32_t did;
+      uint32_t ppm;
+
+      PRINTF("get_freq_correction()\n");
+
+      if (rtlsdr_rpc_msg_pop_uint32(q, &did)) goto on_error;
+      if (rtlsdr_rpc_msg_pop_uint32(q, &ppm)) goto on_error;
+
+      if ((rpcd->dev == NULL) || (rpcd->did != did)) goto on_error;
+
+      err = rtlsdr_set_freq_correction(rpcd->dev, (int)ppm);
+      if (err) goto on_error;
+
+      break ;
+    }
+
+  case RTLSDR_RPC_OP_GET_FREQ_CORRECTION:
+    {
+      uint32_t did;
+
+      PRINTF("get_freq_correction()\n");
+
+      if (rtlsdr_rpc_msg_pop_uint32(q, &did)) goto on_error;
+
+      if ((rpcd->dev == NULL) || (rpcd->did != did)) goto on_error;
+
+      err = rtlsdr_get_freq_correction(rpcd->dev);
+
+      break ;
+    }
+
+  case RTLSDR_RPC_OP_GET_TUNER_TYPE:
+    {
+      uint32_t did;
+
+      PRINTF("get_tuner_type()\n");
+
+      if (rtlsdr_rpc_msg_pop_uint32(q, &did)) goto on_error;
+
+      if ((rpcd->dev == NULL) || (rpcd->did != did)) goto on_error;
+
+      err = rtlsdr_get_tuner_type(rpcd->dev);
+
+      break ;
+    }
+
+  case RTLSDR_RPC_OP_SET_TUNER_GAIN_MODE:
+    {
+      uint32_t did;
+      uint32_t manual;
+
+      PRINTF("set_tuner_gain_mode()\n");
+
+      if (rtlsdr_rpc_msg_pop_uint32(q, &did)) goto on_error;
+      if (rtlsdr_rpc_msg_pop_uint32(q, &manual)) goto on_error;
+
+      if ((rpcd->dev == NULL) || (rpcd->did != did)) goto on_error;
+
+      err = rtlsdr_set_tuner_gain_mode(rpcd->dev, (int)manual);
+      if (err) goto on_error;
+
+      break ;
+    }
+
   case RTLSDR_RPC_OP_SET_SAMPLE_RATE:
     {
       uint32_t did;
@@ -755,10 +821,10 @@ int main(int ac, char** av)
   const char* addr;
   const char* port;
 
-  addr = getenv("RTLSDR_RPC_RPCD_ADDR");
+  addr = getenv("RTLSDR_RPC_SERV_ADDR");
   if (addr == NULL) addr = "127.0.0.1";
 
-  port = getenv("RTLSDR_RPC_RPCD_PORT");
+  port = getenv("RTLSDR_RPC_SERV_PORT");
   if (port == NULL) port = "40000";
 
   if (init_rpcd(&rpcd, addr, port)) return -1;

@@ -21,10 +21,12 @@
 #define PRINTF(__s, ...) fprintf(stderr, __s, ##__VA_ARGS__)
 #define TRACE() PRINTF("[t] %s,%u\n", __FILE__, __LINE__)
 #define ERROR() PRINTF("[e] %s,%u\n", __FILE__, __LINE__)
+#define UNIMPL() PRINTF("[u] %s,%u\n", __FILE__, __LINE__)
 #else
+#define PRINTF(...)
 #define TRACE()
 #define ERROR()
-#define PRINTF(...)
+#define UNIMPL()
 #endif
 
 
@@ -496,21 +498,21 @@ int rtlsdr_rpc_get_xtal_freq
 int rtlsdr_rpc_get_usb_strings
 (void* dev, char* manufact, char* product, char* serial)
 {
-  ERROR();
+  UNIMPL();
   return -1;
 }
 
 int rtlsdr_rpc_write_eeprom
 (void* dev, uint8_t* data, uint8_t offset, uint16_t len)
 {
-  ERROR();
+  UNIMPL();
   return -1;
 }
 
 int rtlsdr_rpc_read_eeprom
 (void* dev, uint8_t* data, uint8_t offset, uint16_t len)
 {
-  ERROR();
+  UNIMPL();
   return -1;
 }
 
@@ -557,52 +559,112 @@ uint32_t rtlsdr_rpc_get_center_freq(void* devp)
   return freq;
 }
 
-int rtlsdr_rpc_set_freq_correction(void* dev, int ppm)
+int rtlsdr_rpc_set_freq_correction(void* devp, int ppm)
 {
-  ERROR();
-  return -1;
+  rtlsdr_rpc_dev_t* const dev = devp;
+  rtlsdr_rpc_cli_t* const cli = dev->cli;
+  rtlsdr_rpc_msg_t* const q = &cli->query;
+  rtlsdr_rpc_msg_t* const r = &cli->reply;
+  int err = -1;
+
+  rtlsdr_rpc_msg_reset(q);
+  rtlsdr_rpc_msg_set_op(q, RTLSDR_RPC_OP_SET_FREQ_CORRECTION);
+  if (rtlsdr_rpc_msg_push_uint32(q, dev->index)) goto on_error;
+  if (rtlsdr_rpc_msg_push_uint32(q, (uint32_t)ppm)) goto on_error;
+
+  if (send_recv_msg(cli, q, r)) goto on_error;
+
+  err = rtlsdr_rpc_msg_get_err(r);
+  if (err) goto on_error;
+
+ on_error:
+  return err;
 }
 
-int rtlsdr_rpc_get_freq_correction(void* dev)
+int rtlsdr_rpc_get_freq_correction(void* devp)
 {
-  ERROR();
-  return 0;
+  rtlsdr_rpc_dev_t* const dev = devp;
+  rtlsdr_rpc_cli_t* const cli = dev->cli;
+  rtlsdr_rpc_msg_t* const q = &cli->query;
+  rtlsdr_rpc_msg_t* const r = &cli->reply;
+  int err = -1;
+
+  rtlsdr_rpc_msg_reset(q);
+  rtlsdr_rpc_msg_set_op(q, RTLSDR_RPC_OP_GET_FREQ_CORRECTION);
+  if (rtlsdr_rpc_msg_push_uint32(q, dev->index)) goto on_error;
+
+  if (send_recv_msg(cli, q, r)) goto on_error;
+
+  err = rtlsdr_rpc_msg_get_err(r);
+
+ on_error:
+  return err;
 }
 
-int rtlsdr_rpc_get_tuner_type(void* dev)
+int rtlsdr_rpc_get_tuner_type(void* devp)
 {
-  ERROR();
-  return -1;
+  rtlsdr_rpc_dev_t* const dev = devp;
+  rtlsdr_rpc_cli_t* const cli = dev->cli;
+  rtlsdr_rpc_msg_t* const q = &cli->query;
+  rtlsdr_rpc_msg_t* const r = &cli->reply;
+  int err = -1;
+
+  rtlsdr_rpc_msg_reset(q);
+  rtlsdr_rpc_msg_set_op(q, RTLSDR_RPC_OP_GET_TUNER_TYPE);
+  if (rtlsdr_rpc_msg_push_uint32(q, dev->index)) goto on_error;
+
+  if (send_recv_msg(cli, q, r)) goto on_error;
+
+  err = rtlsdr_rpc_msg_get_err(r);
+
+ on_error:
+  return err;
 }
 
 int rtlsdr_rpc_get_tuner_gains(void* dev, int* gainsp)
 {
-  ERROR();
+  UNIMPL();
   return -1;
 }
 
 int rtlsdr_rpc_set_tuner_gain(void* dev, int gain)
 {
-  ERROR();
+  UNIMPL();
   return -1;
 }
 
 int rtlsdr_rpc_get_tuner_gain(void* dev)
 {
-  ERROR();
+  UNIMPL();
   return -1;
 }
 
 int rtlsdr_rpc_set_tuner_if_gain(void* dev, int stage, int gain)
 {
-  ERROR();
+  UNIMPL();
   return -1;
 }
 
-int rtlsdr_rpc_set_tuner_gain_mode(void* dev, int manual)
+int rtlsdr_rpc_set_tuner_gain_mode(void* devp, int manual)
 {
-  ERROR();
-  return -1;
+  rtlsdr_rpc_dev_t* const dev = devp;
+  rtlsdr_rpc_cli_t* const cli = dev->cli;
+  rtlsdr_rpc_msg_t* const q = &cli->query;
+  rtlsdr_rpc_msg_t* const r = &cli->reply;
+  int err = -1;
+
+  rtlsdr_rpc_msg_reset(q);
+  rtlsdr_rpc_msg_set_op(q, RTLSDR_RPC_OP_SET_TUNER_GAIN_MODE);
+  if (rtlsdr_rpc_msg_push_uint32(q, dev->index)) goto on_error;
+  if (rtlsdr_rpc_msg_push_uint32(q, manual)) goto on_error;
+
+  if (send_recv_msg(cli, q, r)) goto on_error;
+
+  err = rtlsdr_rpc_msg_get_err(r);
+  if (err) goto on_error;
+
+ on_error:
+  return err;
 }
 
 int rtlsdr_rpc_set_sample_rate(void* devp, uint32_t rate)
@@ -650,37 +712,37 @@ uint32_t rtlsdr_rpc_get_sample_rate(void* devp)
 
 int rtlsdr_rpc_set_testmode(void* dev, int on)
 {
-  ERROR();
+  UNIMPL();
   return -1;
 }
 
 int rtlsdr_rpc_set_agc_mode(void* dev, int on)
 {
-  ERROR();
+  UNIMPL();
   return -1;
 }
 
 int rtlsdr_rpc_set_direct_sampling(void* dev, int on)
 {
-  ERROR();
+  UNIMPL();
   return -1;
 }
 
 int rtlsdr_rpc_get_direct_sampling(void* dev)
 {
-  ERROR();
+  UNIMPL();
   return -1;
 }
 
 int rtlsdr_rpc_set_offset_tuning(void* dev, int on)
 {
-  ERROR();
+  UNIMPL();
   return -1;
 }
 
 int rtlsdr_rpc_get_offset_tuning(void* dev)
 {
-  ERROR();
+  UNIMPL();
   return -1;
 }
 
@@ -708,7 +770,7 @@ int rtlsdr_rpc_reset_buffer(void* devp)
 int rtlsdr_rpc_read_sync
 (void* dev, void* buf, int len, int* n_read)
 {
-  ERROR();
+  UNIMPL();
   return -1;
 }
 
