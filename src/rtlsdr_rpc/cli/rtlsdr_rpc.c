@@ -13,8 +13,7 @@
 #include <sys/time.h>
 #include <netinet/in.h>
 #include <netdb.h>
-#include <pthread.h>
-#include "../common/rtlsdr_rpc.h"
+#include "../common/rtlsdr_rpc_common.h"
 
 
 #if 1
@@ -328,6 +327,19 @@ const char* rtlsdr_rpc_get_device_name
   return s;
 }
 
+int rtlsdr_rpc_get_device_usb_strings
+(uint32_t index, char* manufact, char* product, char* serial)
+{
+  ERROR();
+  return -1;
+}
+
+int rtlsdr_rpc_get_index_by_serial(const char* serial)
+{
+  ERROR();
+  return -1;
+}
+
 int rtlsdr_rpc_open(rtlsdr_rpc_dev_t** dev, uint32_t index)
 {
   rtlsdr_rpc_cli_t* const cli = &rtlsdr_rpc_cli;
@@ -439,6 +451,27 @@ int rtlsdr_rpc_get_xtal_freq
   return err;
 }
 
+int rtlsdr_rpc_get_usb_strings
+(rtlsdr_rpc_dev_t* dev, char* manufact, char* product, char* serial)
+{
+  ERROR();
+  return -1;
+}
+
+int rtlsdr_rpc_write_eeprom
+(rtlsdr_rpc_dev_t* dev, uint8_t* data, uint8_t offset, uint16_t len)
+{
+  ERROR();
+  return -1;
+}
+
+int rtlsdr_rpc_read_eeprom
+(rtlsdr_rpc_dev_t* dev, uint8_t* data, uint8_t offset, uint16_t len)
+{
+  ERROR();
+  return -1;
+}
+
 int rtlsdr_rpc_set_center_freq(rtlsdr_rpc_dev_t* dev, uint32_t freq)
 {
   rtlsdr_rpc_cli_t* const cli = dev->cli;
@@ -480,8 +513,55 @@ uint32_t rtlsdr_rpc_get_center_freq(rtlsdr_rpc_dev_t* dev)
   return freq;
 }
 
-int rtlsdr_rpc_set_sample_rate
-(rtlsdr_rpc_dev_t* dev, uint32_t rate)
+int rtlsdr_rpc_set_freq_correction(rtlsdr_rpc_dev_t* dev, int ppm)
+{
+  ERROR();
+  return -1;
+}
+
+int rtlsdr_rpc_get_freq_correction(rtlsdr_rpc_dev_t* dev)
+{
+  ERROR();
+  return 0;
+}
+
+int rtlsdr_rpc_get_tuner_type(rtlsdr_rpc_dev_t* dev)
+{
+  ERROR();
+  return -1;
+}
+
+int rtlsdr_rpc_get_tuner_gains(rtlsdr_rpc_dev_t* dev, int* gainsp)
+{
+  ERROR();
+  return -1;
+}
+
+int rtlsdr_rpc_set_tuner_gain(rtlsdr_rpc_dev_t* dev, int gain)
+{
+  ERROR();
+  return -1;
+}
+
+int rtlsdr_rpc_get_tuner_gain(rtlsdr_rpc_dev_t* dev)
+{
+  ERROR();
+  return -1;
+}
+
+int rtlsdr_rpc_set_tuner_if_gain(rtlsdr_rpc_dev_t* dev, int stage, int gain)
+{
+  ERROR();
+  return -1;
+}
+
+int rtlsdr_rpc_set_tuner_gain_mode(rtlsdr_rpc_dev_t* dev, int manual)
+{
+  ERROR();
+  return -1;
+}
+
+int rtlsdr_rpc_set_sample_rate(rtlsdr_rpc_dev_t* dev, uint32_t rate)
 {
   rtlsdr_rpc_cli_t* const cli = dev->cli;
   rtlsdr_rpc_msg_t* const q = &cli->query;
@@ -502,7 +582,7 @@ int rtlsdr_rpc_set_sample_rate
   return err;
 }
 
-uint32_t rtlsdr_get_sample_rate(rtlsdr_rpc_dev_t* dev)
+uint32_t rtlsdr_rpc_get_sample_rate(rtlsdr_rpc_dev_t* dev)
 {
   rtlsdr_rpc_cli_t* const cli = dev->cli;
   rtlsdr_rpc_msg_t* const q = &cli->query;
@@ -520,6 +600,42 @@ uint32_t rtlsdr_get_sample_rate(rtlsdr_rpc_dev_t* dev)
 
  on_error_0:
   return rate;
+}
+
+int rtlsdr_rpc_set_testmode(rtlsdr_rpc_dev_t* dev, int on)
+{
+  ERROR();
+  return -1;
+}
+
+int rtlsdr_rpc_set_agc_mode(rtlsdr_rpc_dev_t* dev, int on)
+{
+  ERROR();
+  return -1;
+}
+
+int rtlsdr_rpc_set_direct_sampling(rtlsdr_rpc_dev_t* dev, int on)
+{
+  ERROR();
+  return -1;
+}
+
+int rtlsdr_rpc_get_direct_sampling(rtlsdr_rpc_dev_t* dev)
+{
+  ERROR();
+  return -1;
+}
+
+int rtlsdr_rpc_set_offset_tuning(rtlsdr_rpc_dev_t* dev, int on)
+{
+  ERROR();
+  return -1;
+}
+
+int rtlsdr_rpc_get_offset_tuning(rtlsdr_rpc_dev_t* dev)
+{
+  ERROR();
+  return -1;
 }
 
 int rtlsdr_rpc_reset_buffer(rtlsdr_rpc_dev_t* dev)
@@ -548,8 +664,8 @@ int rtlsdr_rpc_wait_async
  rtlsdr_rpc_read_async_cb_t cb, void* ctx
 )
 {
-  /* TODO, not implemented since deprecated */
-
+  /* not implemented since deprecated */
+  ERROR();
   return -1;
 }
 

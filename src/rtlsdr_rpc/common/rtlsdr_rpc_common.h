@@ -1,5 +1,5 @@
-#ifndef RTLSDR_RPC_H_INCLUDED
-#define RTLSDR_RPC_H_INCLUDED
+#ifndef RTLSDR_RPC_COMMON_H_INCLUDED
+#define RTLSDR_RPC_COMMON_H_INCLUDED
 
 
 #include <stdint.h>
@@ -87,4 +87,4 @@ int rtlsdr_rpc_msg_pop_uint32(rtlsdr_rpc_msg_t*, uint32_t*);
 int rtlsdr_rpc_msg_pop_str(rtlsdr_rpc_msg_t*, const char**);
 
 
-#endif /* RTLSDR_RPC_H_INCLUDED */
+#endif /* RTLSDR_RPC_COMMON_H_INCLUDED */

@@ -14,7 +14,7 @@
 #include <netinet/in.h>
 #include <netdb.h>
 #include <rtl-sdr.h>
-#include "../common/rtlsdr_rpc.h"
+#include "../common/rtlsdr_rpc_common.h"
 
 
 #if 1
