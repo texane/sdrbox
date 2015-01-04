@@ -697,13 +697,14 @@ int rtlsdr_rpc_read_async
   cli->is_async_cancel = 0;
   while (cli->is_async_cancel == 0)
   {
+    static const size_t off = offsetof(rtlsdr_rpc_fmt_t, data);
+
     if (recv_msg(cli->sock, r))
     {
       err = -1;
       goto on_error_0;
     }
 
-    static const size_t off = offsetof(rtlsdr_rpc_fmt_t, data);
     size = rtlsdr_rpc_msg_get_size(r);
     cb(r->fmt + off, size - off, ctx);
   }
