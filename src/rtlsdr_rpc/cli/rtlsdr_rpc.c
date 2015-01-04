@@ -330,14 +330,53 @@ const char* rtlsdr_rpc_get_device_name
 int rtlsdr_rpc_get_device_usb_strings
 (uint32_t index, char* manufact, char* product, char* serial)
 {
-  ERROR();
-  return -1;
+  rtlsdr_rpc_cli_t* const cli = &rtlsdr_rpc_cli;
+  rtlsdr_rpc_msg_t* const q = &cli->query;
+  rtlsdr_rpc_msg_t* const r = &cli->reply;
+  const char* s;
+  int err = -1;
+
+  if (init_cli(cli)) goto on_error;
+
+  rtlsdr_rpc_msg_reset(q);
+  rtlsdr_rpc_msg_set_op(q, RTLSDR_RPC_OP_GET_DEVICE_USB_STRINGS);
+  if (rtlsdr_rpc_msg_push_uint32(q, index)) goto on_error;
+
+  if (send_recv_msg(cli, q, r)) goto on_error;
+
+  err = rtlsdr_rpc_msg_get_err(r);
+  if (err) goto on_error;
+
+  if (rtlsdr_rpc_msg_pop_str(r, &s)) goto on_error;
+  strcpy(manufact, s);
+  if (rtlsdr_rpc_msg_pop_str(r, &s)) goto on_error;
+  strcpy(product, s);
+  if (rtlsdr_rpc_msg_pop_str(r, &s)) goto on_error;
+  strcpy(serial, s);
+
+ on_error:
+  return err;
 }
 
 int rtlsdr_rpc_get_index_by_serial(const char* serial)
 {
-  ERROR();
-  return -1;
+  rtlsdr_rpc_cli_t* const cli = &rtlsdr_rpc_cli;
+  rtlsdr_rpc_msg_t* const q = &cli->query;
+  rtlsdr_rpc_msg_t* const r = &cli->reply;
+  int err = -1;
+
+  if (init_cli(cli)) goto on_error;
+
+  rtlsdr_rpc_msg_reset(q);
+  rtlsdr_rpc_msg_set_op(q, RTLSDR_RPC_OP_GET_INDEX_BY_SERIAL);
+  if (rtlsdr_rpc_msg_push_str(q, serial)) goto on_error;
+
+  if (send_recv_msg(cli, q, r)) goto on_error;
+
+  err = rtlsdr_rpc_msg_get_err(r);
+
+ on_error:
+  return err;
 }
 
 int rtlsdr_rpc_open(void** devp, uint32_t index)

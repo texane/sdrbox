@@ -402,6 +402,54 @@ static int handle_query
       break ;
     }
 
+  case RTLSDR_RPC_OP_GET_DEVICE_USB_STRINGS:
+    {
+      char manuf[256];
+      char product[256];
+      char serial[256];
+      uint32_t i;
+
+      PRINTF("get_device_usb_strings()\n");
+
+      if (rtlsdr_rpc_msg_pop_uint32(q, &i)) goto on_error;
+
+      err = rtlsdr_get_device_usb_strings(i, manuf, product, serial);
+      if (err) goto on_error;
+
+      if (rtlsdr_rpc_msg_push_str(r, manuf))
+      {
+	err = -1;
+	goto on_error;
+      }
+
+      if (rtlsdr_rpc_msg_push_str(r, product))
+      {
+	err = -1;
+	goto on_error;
+      }
+
+      if (rtlsdr_rpc_msg_push_str(r, serial))
+      {
+	err = -1;
+	goto on_error;
+      }
+
+      break ;
+    }
+
+  case RTLSDR_RPC_OP_GET_INDEX_BY_SERIAL:
+    {
+      const char* serial;
+
+      PRINTF("get_index_by_serial()\n");
+
+      if (rtlsdr_rpc_msg_pop_str(q, &serial)) goto on_error;
+      err = rtlsdr_get_index_by_serial(serial);
+      if (err < 0) goto on_error;
+
+      break ;
+    }
+
   case RTLSDR_RPC_OP_OPEN:
     {
       PRINTF("open()\n");
