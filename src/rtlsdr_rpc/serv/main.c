@@ -41,7 +41,7 @@ typedef struct
   rtlsdr_rpc_msg_t reply_msg;
   rtlsdr_rpc_msg_t event_msg;
 
-} serv_t;
+} rpcd_t;
 
 static int resolve_ip_addr
 (
@@ -112,7 +112,7 @@ static int open_nonblock_socket
   return fd;
 }
 
-static int init_serv(serv_t* serv, const char* addr, const char* port)
+static int init_rpcd(rpcd_t* rpcd, const char* addr, const char* port)
 {
   struct sockaddr_storage saddrs[2];
   struct sockaddr_storage* saddr;
@@ -122,9 +122,9 @@ static int init_serv(serv_t* serv, const char* addr, const char* port)
   int enable = 1;
 
   /* TODO: handle errors */
-  rtlsdr_rpc_msg_init(&serv->query_msg, 0);
-  rtlsdr_rpc_msg_init(&serv->reply_msg, 0);
-  rtlsdr_rpc_msg_init(&serv->event_msg, 0);
+  rtlsdr_rpc_msg_init(&rpcd->query_msg, 0);
+  rtlsdr_rpc_msg_init(&rpcd->reply_msg, 0);
+  rtlsdr_rpc_msg_init(&rpcd->event_msg, 0);
 
   if (resolve_ip_addr(saddrs, sizes, addr, port))
   {
@@ -132,16 +132,16 @@ static int init_serv(serv_t* serv, const char* addr, const char* port)
     goto on_error_0;
   }
 
-  serv->listen_sock = open_nonblock_socket
+  rpcd->listen_sock = open_nonblock_socket
     (saddrs, sizes, SOCK_STREAM, IPPROTO_TCP, &saddr, &size);
-  if (serv->listen_sock == -1)
+  if (rpcd->listen_sock == -1)
   {
     ERROR();
     goto on_error_0;
   }
 
   err = setsockopt
-    (serv->listen_sock, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int));
+    (rpcd->listen_sock, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int));
   if (err)
   {
     ERROR();
@@ -149,44 +149,44 @@ static int init_serv(serv_t* serv, const char* addr, const char* port)
   }
 
   err = bind
-    (serv->listen_sock, (const struct sockaddr*)saddr, (socklen_t)size);
+    (rpcd->listen_sock, (const struct sockaddr*)saddr, (socklen_t)size);
   if (err)
   {
     ERROR();
     goto on_error_1;
   }
 
-  if (listen(serv->listen_sock, 5))
+  if (listen(rpcd->listen_sock, 5))
   {
     ERROR();
     goto on_error_1;
   }
 
-  serv->cli_sock = -1;
-  serv->dev = NULL;
+  rpcd->cli_sock = -1;
+  rpcd->dev = NULL;
 
   return 0;
 
  on_error_1:
-  close(serv->listen_sock);
+  close(rpcd->listen_sock);
  on_error_0:
   return -1;
 }
 
-static int fini_serv(serv_t* serv)
+static int fini_rpcd(rpcd_t* rpcd)
 {
-  if (serv->cli_sock != -1)
+  if (rpcd->cli_sock != -1)
   {
-    shutdown(serv->cli_sock, SHUT_RDWR);
-    close(serv->cli_sock);
+    shutdown(rpcd->cli_sock, SHUT_RDWR);
+    close(rpcd->cli_sock);
   }
 
-  shutdown(serv->listen_sock, SHUT_RDWR);
-  close(serv->listen_sock);
+  shutdown(rpcd->listen_sock, SHUT_RDWR);
+  close(rpcd->listen_sock);
 
-  rtlsdr_rpc_msg_fini(&serv->query_msg);
-  rtlsdr_rpc_msg_fini(&serv->reply_msg);
-  rtlsdr_rpc_msg_fini(&serv->event_msg);
+  rtlsdr_rpc_msg_fini(&rpcd->query_msg);
+  rtlsdr_rpc_msg_fini(&rpcd->reply_msg);
+  rtlsdr_rpc_msg_fini(&rpcd->event_msg);
 
   return 0;
 }
@@ -316,33 +316,33 @@ static int send_msg(int fd, rtlsdr_rpc_msg_t* m)
   return send_all(fd, m->fmt, m->off);
 }
 
-static int recv_query(serv_t* serv, rtlsdr_rpc_msg_t** q)
+static int recv_query(rpcd_t* rpcd, rtlsdr_rpc_msg_t** q)
 {
   *q = NULL;
-  rtlsdr_rpc_msg_reset(&serv->query_msg);
-  if (recv_msg(serv->cli_sock, &serv->query_msg)) return -1;
-  *q = &serv->query_msg;
+  rtlsdr_rpc_msg_reset(&rpcd->query_msg);
+  if (recv_msg(rpcd->cli_sock, &rpcd->query_msg)) return -1;
+  *q = &rpcd->query_msg;
   return 0;
 }
 
-static int send_reply(serv_t* serv, rtlsdr_rpc_msg_t* r)
+static int send_reply(rpcd_t* rpcd, rtlsdr_rpc_msg_t* r)
 {
-  return send_msg(serv->cli_sock, r);
+  return send_msg(rpcd->cli_sock, r);
 }
 
 static void read_async_cb
 (unsigned char* buf, uint32_t len, void* ctx)
 {
-  serv_t* const serv = ctx;
+  rpcd_t* const rpcd = ctx;
   const size_t off = offsetof(rtlsdr_rpc_fmt_t, data);
   rtlsdr_rpc_fmt_t fmt;
   rtlsdr_rpc_msg_t msg;
   unsigned int is_recv;
 
-  if (serv->reply_msg.off)
+  if (rpcd->reply_msg.off)
   {
-    send_reply(serv, &serv->reply_msg);
-    serv->reply_msg.off = 0;
+    send_reply(rpcd, &rpcd->reply_msg);
+    rpcd->reply_msg.off = 0;
   }
 
   msg.off = off;
@@ -351,16 +351,16 @@ static void read_async_cb
   rtlsdr_rpc_msg_set_size(&msg, msg.size);
   rtlsdr_rpc_msg_set_op(&msg, RTLSDR_RPC_OP_READ_ASYNC);
 
-  send_all(serv->cli_sock, (const uint8_t*)&fmt, off);
-  send_all_check_recv(serv->cli_sock, buf, len, &is_recv);
+  send_all(rpcd->cli_sock, (const uint8_t*)&fmt, off);
+  send_all_check_recv(rpcd->cli_sock, buf, len, &is_recv);
 
-  if (is_recv) rtlsdr_cancel_async(serv->dev);
+  if (is_recv) rtlsdr_cancel_async(rpcd->dev);
 }
 
 static int handle_query
-(serv_t* serv, rtlsdr_rpc_msg_t* q, rtlsdr_rpc_msg_t** rr)
+(rpcd_t* rpcd, rtlsdr_rpc_msg_t* q, rtlsdr_rpc_msg_t** rr)
 {
-  rtlsdr_rpc_msg_t* const r = &serv->reply_msg;
+  rtlsdr_rpc_msg_t* const r = &rpcd->reply_msg;
   rtlsdr_rpc_op_t op;
   int err = -1;
 
@@ -406,13 +406,13 @@ static int handle_query
     {
       PRINTF("open()\n");
 
-      if (serv->dev != NULL) goto on_error;
+      if (rpcd->dev != NULL) goto on_error;
 
-      if (rtlsdr_rpc_msg_pop_uint32(q, &serv->did)) goto on_error;
-      err = rtlsdr_open(&serv->dev, serv->did);
+      if (rtlsdr_rpc_msg_pop_uint32(q, &rpcd->did)) goto on_error;
+      err = rtlsdr_open(&rpcd->dev, rpcd->did);
       if (err)
       {
-	serv->dev = NULL;
+	rpcd->dev = NULL;
 	goto on_error;
       }
 
@@ -426,9 +426,9 @@ static int handle_query
       PRINTF("close()\n");
 
       if (rtlsdr_rpc_msg_pop_uint32(q, &did)) goto on_error;
-      if ((serv->dev == NULL) || (serv->did != did)) goto on_error;
-      err = rtlsdr_close(serv->dev);
-      serv->dev = NULL;
+      if ((rpcd->dev == NULL) || (rpcd->did != did)) goto on_error;
+      err = rtlsdr_close(rpcd->dev);
+      rpcd->dev = NULL;
 
       break ;
     }
@@ -445,9 +445,9 @@ static int handle_query
       if (rtlsdr_rpc_msg_pop_uint32(q, &rtl_freq)) goto on_error;
       if (rtlsdr_rpc_msg_pop_uint32(q, &tuner_freq)) goto on_error;
 
-      if ((serv->dev == NULL) || (serv->did != did)) goto on_error;
+      if ((rpcd->dev == NULL) || (rpcd->did != did)) goto on_error;
 
-      err = rtlsdr_set_xtal_freq(serv->dev, rtl_freq, tuner_freq);
+      err = rtlsdr_set_xtal_freq(rpcd->dev, rtl_freq, tuner_freq);
       if (err) goto on_error;
 
       break ;
@@ -463,9 +463,9 @@ static int handle_query
 
       if (rtlsdr_rpc_msg_pop_uint32(q, &did)) goto on_error;
 
-      if ((serv->dev == NULL) || (serv->did != did)) goto on_error;
+      if ((rpcd->dev == NULL) || (rpcd->did != did)) goto on_error;
 
-      err = rtlsdr_get_xtal_freq(serv->dev, &rtl_freq, &tuner_freq);
+      err = rtlsdr_get_xtal_freq(rpcd->dev, &rtl_freq, &tuner_freq);
       if (err) goto on_error;
 
       if (rtlsdr_rpc_msg_push_uint32(r, rtl_freq))
@@ -493,9 +493,9 @@ static int handle_query
       if (rtlsdr_rpc_msg_pop_uint32(q, &did)) goto on_error;
       if (rtlsdr_rpc_msg_pop_uint32(q, &freq)) goto on_error;
 
-      if ((serv->dev == NULL) || (serv->did != did)) goto on_error;
+      if ((rpcd->dev == NULL) || (rpcd->did != did)) goto on_error;
 
-      err = rtlsdr_set_center_freq(serv->dev, freq);
+      err = rtlsdr_set_center_freq(rpcd->dev, freq);
       if (err) goto on_error;
 
       break ;
@@ -510,9 +510,9 @@ static int handle_query
 
       if (rtlsdr_rpc_msg_pop_uint32(q, &did)) goto on_error;
 
-      if ((serv->dev == NULL) || (serv->did != did)) goto on_error;
+      if ((rpcd->dev == NULL) || (rpcd->did != did)) goto on_error;
 
-      freq = rtlsdr_get_center_freq(serv->dev);
+      freq = rtlsdr_get_center_freq(rpcd->dev);
       if (freq == 0) goto on_error;
       if (rtlsdr_rpc_msg_push_uint32(r, freq)) goto on_error;
       err = 0;
@@ -530,9 +530,9 @@ static int handle_query
       if (rtlsdr_rpc_msg_pop_uint32(q, &did)) goto on_error;
       if (rtlsdr_rpc_msg_pop_uint32(q, &rate)) goto on_error;
 
-      if ((serv->dev == NULL) || (serv->did != did)) goto on_error;
+      if ((rpcd->dev == NULL) || (rpcd->did != did)) goto on_error;
 
-      err = rtlsdr_set_sample_rate(serv->dev, rate);
+      err = rtlsdr_set_sample_rate(rpcd->dev, rate);
       if (err) goto on_error;
 
       break ;
@@ -547,9 +547,9 @@ static int handle_query
 
       if (rtlsdr_rpc_msg_pop_uint32(q, &did)) goto on_error;
 
-      if ((serv->dev == NULL) || (serv->did != did)) goto on_error;
+      if ((rpcd->dev == NULL) || (rpcd->did != did)) goto on_error;
 
-      rate = rtlsdr_get_sample_rate(serv->dev);
+      rate = rtlsdr_get_sample_rate(rpcd->dev);
       if (rate == 0) goto on_error;
       if (rtlsdr_rpc_msg_push_uint32(r, rate)) goto on_error;
       err = 0;
@@ -565,9 +565,9 @@ static int handle_query
 
       if (rtlsdr_rpc_msg_pop_uint32(q, &did)) goto on_error;
 
-      if ((serv->dev == NULL) || (serv->did != did)) goto on_error;
+      if ((rpcd->dev == NULL) || (rpcd->did != did)) goto on_error;
 
-      err = rtlsdr_reset_buffer(serv->dev);
+      err = rtlsdr_reset_buffer(rpcd->dev);
       if (err) goto on_error;
 
       break ;
@@ -585,7 +585,7 @@ static int handle_query
       if (rtlsdr_rpc_msg_pop_uint32(q, &buf_num)) goto on_error;
       if (rtlsdr_rpc_msg_pop_uint32(q, &buf_len)) goto on_error;
 
-      if ((serv->dev == NULL) || (serv->did != did)) goto on_error;
+      if ((rpcd->dev == NULL) || (rpcd->did != did)) goto on_error;
 
       /* prepare the reply here */
       rtlsdr_rpc_msg_set_size(r, r->off);
@@ -594,7 +594,7 @@ static int handle_query
       rtlsdr_rpc_msg_set_err(r, 0);
 
       rtlsdr_read_async
-	(serv->dev, read_async_cb, serv, buf_num, buf_len);
+	(rpcd->dev, read_async_cb, rpcd, buf_num, buf_len);
 
       /* do not resend reply */
       return 0;
@@ -609,7 +609,7 @@ static int handle_query
 
       if (rtlsdr_rpc_msg_pop_uint32(q, &did)) goto on_error;
 
-      if ((serv->dev == NULL) || (serv->did != did)) goto on_error;
+      if ((rpcd->dev == NULL) || (rpcd->did != did)) goto on_error;
 
       /* already cancelled if here */
       err = 0;
@@ -633,7 +633,7 @@ static int handle_query
   return 0;
 }
 
-static int do_serv(serv_t* serv)
+static int do_rpcd(rpcd_t* rpcd)
 {
   fd_set rset;
   int max_fd;
@@ -642,15 +642,15 @@ static int do_serv(serv_t* serv)
   {
     FD_ZERO(&rset);
 
-    if (serv->cli_sock != -1)
+    if (rpcd->cli_sock != -1)
     {
-      FD_SET(serv->cli_sock, &rset);
-      max_fd = serv->cli_sock;
+      FD_SET(rpcd->cli_sock, &rset);
+      max_fd = rpcd->cli_sock;
     }
     else
     {
-      FD_SET(serv->listen_sock, &rset);
-      max_fd = serv->listen_sock;
+      FD_SET(rpcd->listen_sock, &rset);
+      max_fd = rpcd->listen_sock;
     }
 
     if (select(max_fd + 1, &rset, NULL, NULL, NULL) <= 0)
@@ -659,12 +659,12 @@ static int do_serv(serv_t* serv)
       return -1;
     }
 
-    if (FD_ISSET(serv->listen_sock, &rset))
+    if (FD_ISSET(rpcd->listen_sock, &rset))
     {
       PRINTF("new client\n");
 
-      serv->cli_sock = accept(serv->listen_sock, NULL, NULL);
-      if (serv->cli_sock == -1)
+      rpcd->cli_sock = accept(rpcd->listen_sock, NULL, NULL);
+      if (rpcd->cli_sock == -1)
       {
 	if ((errno == EWOULDBLOCK) || (errno == EAGAIN))
 	  continue ;
@@ -672,28 +672,28 @@ static int do_serv(serv_t* serv)
 	break ;
       }
 
-      if (fcntl(serv->cli_sock, F_SETFL, O_NONBLOCK))
+      if (fcntl(rpcd->cli_sock, F_SETFL, O_NONBLOCK))
       {
 	ERROR();
 	break ;
       }
     }
-    else if (FD_ISSET(serv->cli_sock, &rset))
+    else if (FD_ISSET(rpcd->cli_sock, &rset))
     {
       rtlsdr_rpc_msg_t* q;
       rtlsdr_rpc_msg_t* r;
 
-      if (recv_query(serv, &q))
+      if (recv_query(rpcd, &q))
       {
 	PRINTF("cli closed\n");
-	shutdown(serv->cli_sock, SHUT_RDWR);
-	close(serv->cli_sock);
-	serv->cli_sock = -1;
+	shutdown(rpcd->cli_sock, SHUT_RDWR);
+	close(rpcd->cli_sock);
+	rpcd->cli_sock = -1;
       }
       else if (q != NULL)
       {
-	handle_query(serv, q, &r);
-	if (r != NULL) send_reply(serv, r);
+	handle_query(rpcd, q, &r);
+	if (r != NULL) send_reply(rpcd, r);
       }
     }
   }
@@ -703,19 +703,19 @@ static int do_serv(serv_t* serv)
 
 int main(int ac, char** av)
 {
-  serv_t serv;
+  rpcd_t rpcd;
   const char* addr;
   const char* port;
 
-  addr = getenv("RTLSDR_RPC_SERV_ADDR");
+  addr = getenv("RTLSDR_RPC_RPCD_ADDR");
   if (addr == NULL) addr = "127.0.0.1";
 
-  port = getenv("RTLSDR_RPC_SERV_PORT");
+  port = getenv("RTLSDR_RPC_RPCD_PORT");
   if (port == NULL) port = "40000";
 
-  if (init_serv(&serv, addr, port)) return -1;
-  do_serv(&serv);
-  fini_serv(&serv);
+  if (init_rpcd(&rpcd, addr, port)) return -1;
+  do_rpcd(&rpcd);
+  fini_rpcd(&rpcd);
 
   return 0;
 }
