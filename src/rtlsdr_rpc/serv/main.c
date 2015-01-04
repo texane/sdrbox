@@ -354,7 +354,6 @@ static void read_async_cb
 
   send_all(serv->cli_sock, (const uint8_t*)&fmt, off);
   send_all_check_recv(serv->cli_sock, buf, len, &is_recv);
-
   if (is_recv) rtlsdr_cancel_async(serv->dev);
 }
 
@@ -459,7 +458,6 @@ static int handle_query
       PRINTF("get_xtal_freq()\n");
 
       if (rtlsdr_rpc_msg_pop_uint32(q, &did)) goto on_error;
-;
 
       if ((serv->dev == NULL) || (serv->did != did)) goto on_error;
 
@@ -507,7 +505,6 @@ static int handle_query
       PRINTF("get_center_freq()\n");
 
       if (rtlsdr_rpc_msg_pop_uint32(q, &did)) goto on_error;
-;
 
       if ((serv->dev == NULL) || (serv->did != did)) goto on_error;
 

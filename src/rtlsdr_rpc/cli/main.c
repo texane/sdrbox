@@ -45,8 +45,6 @@ int main(int ac, char** av)
   uint32_t i;
   uint32_t n;
 
-  signal(SIGINT, on_sigint);
-
   n = rtlsdr_rpc_get_device_count();
   printf("count: %u\n", n);
 
@@ -65,6 +63,7 @@ int main(int ac, char** av)
     rtlsdr_rpc_set_center_freq(dev, 120000000);
     rtlsdr_rpc_set_sample_rate(dev, 300000);
     gdev = dev;
+    signal(SIGINT, on_sigint);
     rtlsdr_rpc_read_async(dev, async_cb, NULL, 8, 64 * 1024);
     rtlsdr_rpc_close(dev);
   }
