@@ -250,26 +250,14 @@ uint16_t rtlsdr_rpc_msg_get_mid(const rtlsdr_rpc_msg_t* msg)
   return get_uint16(&fmt->mid);
 }
 
-void rtlsdr_rpc_msg_set_did(rtlsdr_rpc_msg_t* msg, uint8_t did)
+void rtlsdr_rpc_msg_set_err(rtlsdr_rpc_msg_t* msg, int err)
 {
   rtlsdr_rpc_fmt_t* const fmt = (rtlsdr_rpc_fmt_t*)msg->fmt;
-  put_uint8(&fmt->did, did);
+  put_uint32(&fmt->err, (uint32_t)err);
 }
 
-uint8_t rtlsdr_rpc_msg_get_did(const rtlsdr_rpc_msg_t* msg)
+int rtlsdr_rpc_msg_get_err(const rtlsdr_rpc_msg_t* msg)
 {
   const rtlsdr_rpc_fmt_t* const fmt = (const rtlsdr_rpc_fmt_t*)msg->fmt;
-  return get_uint8(&fmt->did);
-}
-
-void rtlsdr_rpc_msg_set_err(rtlsdr_rpc_msg_t* msg, uint8_t err)
-{
-  rtlsdr_rpc_fmt_t* const fmt = (rtlsdr_rpc_fmt_t*)msg->fmt;
-  put_uint8(&fmt->err, err);
-}
-
-uint8_t rtlsdr_rpc_msg_get_err(const rtlsdr_rpc_msg_t* msg)
-{
-  const rtlsdr_rpc_fmt_t* const fmt = (const rtlsdr_rpc_fmt_t*)msg->fmt;
-  return get_uint8(&fmt->err);
+  return (int)get_uint32(&fmt->err);
 }

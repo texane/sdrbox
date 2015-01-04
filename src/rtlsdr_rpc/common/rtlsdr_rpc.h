@@ -29,6 +29,7 @@ typedef enum
   RTLSDR_RPC_OP_SET_TUNER_IF_GAIN,
   RTLSDR_RPC_OP_SET_TUNER_GAIN_MODE,
   RTLSDR_RPC_OP_SET_SAMPLE_RATE,
+  RTLSDR_RPC_OP_GET_SAMPLE_RATE,
   RTLSDR_RPC_OP_SET_TESTMODE,
   RTLSDR_RPC_OP_SET_AGC_MODE,
   RTLSDR_RPC_OP_SET_DIRECT_SAMPLING,
@@ -40,8 +41,11 @@ typedef enum
   RTLSDR_RPC_OP_WAIT_ASYNC,
   RTLSDR_RPC_OP_READ_ASYNC,
   RTLSDR_RPC_OP_CANCEL_ASYNC,
+
+  /* non api operations */
   RTLSDR_RPC_OP_EVENT_STATE,
   RTLSDR_RPC_OP_EVENT_DATA,
+
   RTLSDR_RPC_OP_INVALID
 } rtlsdr_rpc_op_t;
 
@@ -51,8 +55,7 @@ typedef struct
   uint32_t size;
   uint8_t op;
   uint16_t mid;
-  uint8_t did;
-  uint8_t err;
+  uint32_t err;
   uint8_t data[1];
 } __attribute__((packed)) rtlsdr_rpc_fmt_t;
 
@@ -74,10 +77,8 @@ void rtlsdr_rpc_msg_set_op(rtlsdr_rpc_msg_t*, rtlsdr_rpc_op_t);
 rtlsdr_rpc_op_t rtlsdr_rpc_msg_get_op(const rtlsdr_rpc_msg_t*);
 void rtlsdr_rpc_msg_set_mid(rtlsdr_rpc_msg_t*, uint16_t);
 uint16_t rtlsdr_rpc_msg_get_mid(const rtlsdr_rpc_msg_t*);
-void rtlsdr_rpc_msg_set_did(rtlsdr_rpc_msg_t*, uint8_t);
-uint8_t rtlsdr_rpc_msg_get_did(const rtlsdr_rpc_msg_t*);
-void rtlsdr_rpc_msg_set_err(rtlsdr_rpc_msg_t*, uint8_t);
-uint8_t rtlsdr_rpc_msg_get_err(const rtlsdr_rpc_msg_t*);
+void rtlsdr_rpc_msg_set_err(rtlsdr_rpc_msg_t*, int);
+int rtlsdr_rpc_msg_get_err(const rtlsdr_rpc_msg_t*);
 
 int rtlsdr_rpc_msg_push_int32(rtlsdr_rpc_msg_t*, int32_t);
 int rtlsdr_rpc_msg_push_uint32(rtlsdr_rpc_msg_t*, uint32_t);

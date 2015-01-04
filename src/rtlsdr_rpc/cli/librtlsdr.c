@@ -34,9 +34,21 @@ typedef struct
   unsigned int is_init;
   uint16_t mid;
   int sock;
+  rtlsdr_rpc_msg_t query;
+  rtlsdr_rpc_msg_t reply;
+  volatile unsigned int is_async_cancel;
 } rtlsdr_rpc_cli_t;
 
 static rtlsdr_rpc_cli_t rtlsdr_rpc_cli = { 0, };
+
+typedef void (*rtlsdr_rpc_read_async_cb_t)
+(unsigned char*, uint32_t, void*);
+
+typedef struct rtlsdr_rpc_dev
+{
+  uint32_t index;
+  rtlsdr_rpc_cli_t* cli;
+} rtlsdr_rpc_dev_t;
 
 static int resolve_ip_addr
 (
@@ -145,12 +157,16 @@ static int init_cli(rtlsdr_rpc_cli_t* cli)
   }
 
   cli->mid = 0;
-
+  if (rtlsdr_rpc_msg_init(&cli->query, 0)) goto on_error_1;
+  if (rtlsdr_rpc_msg_init(&cli->reply, 0)) goto on_error_2;
   cli->is_init = 1;
 
   return 0;
 
+ on_error_2:
+  rtlsdr_rpc_msg_fini(&cli->query);
  on_error_1:
+  shutdown(cli->sock, SHUT_RDWR);
   close(cli->sock);
  on_error_0:
   return -1;
@@ -159,6 +175,8 @@ static int init_cli(rtlsdr_rpc_cli_t* cli)
 __attribute__((unused))
 static int fini_cli(rtlsdr_rpc_cli_t* cli)
 {
+  rtlsdr_rpc_msg_fini(&cli->query);
+  rtlsdr_rpc_msg_fini(&cli->reply);
   shutdown(cli->sock, SHUT_RDWR);
   close(cli->sock);
   return 0;
@@ -254,11 +272,13 @@ static int send_msg(int fd, rtlsdr_rpc_msg_t* m)
 static int send_recv_msg
 (rtlsdr_rpc_cli_t* cli, rtlsdr_rpc_msg_t* q, rtlsdr_rpc_msg_t* r)
 {
-  rtlsdr_rpc_msg_set_mid(q, get_mid(cli));
   rtlsdr_rpc_msg_set_size(q, (uint32_t)q->off);
+  rtlsdr_rpc_msg_set_mid(q, get_mid(cli));
+
   if (send_msg(cli->sock, q)) return -1;
 
   if (recv_msg(cli->sock, r)) return -1;
+  rtlsdr_rpc_msg_reset(r);
 
   return 0;
 }
@@ -266,25 +286,20 @@ static int send_recv_msg
 uint32_t rtlsdr_rpc_get_device_count(void)
 {
   rtlsdr_rpc_cli_t* const cli = &rtlsdr_rpc_cli;
-
-  rtlsdr_rpc_msg_t q;
-  rtlsdr_rpc_msg_t r;
+  rtlsdr_rpc_msg_t* const q = &cli->query;
+  rtlsdr_rpc_msg_t* const r = &cli->reply;
   uint32_t n = 0;
 
-  if (init_cli(cli)) goto on_error_0;
+  if (init_cli(cli)) goto on_error;
 
-  rtlsdr_rpc_msg_init(&q, 0);
-  rtlsdr_rpc_msg_init(&r, 0);
+  rtlsdr_rpc_msg_reset(q);
+  rtlsdr_rpc_msg_set_op(q, RTLSDR_RPC_OP_GET_DEVICE_COUNT);
 
-  rtlsdr_rpc_msg_set_op(&q, RTLSDR_RPC_OP_GET_DEVICE_COUNT);
-  if (send_recv_msg(cli, &q, &r)) goto on_error_1;
+  if (send_recv_msg(cli, q, r)) goto on_error;
 
-  if (rtlsdr_rpc_msg_pop_uint32(&r, &n)) goto on_error_1;
+  if (rtlsdr_rpc_msg_pop_uint32(r, &n)) goto on_error;
 
- on_error_1:
-  rtlsdr_rpc_msg_fini(&r);
-  rtlsdr_rpc_msg_fini(&q);
- on_error_0:
+ on_error:
   return n;
 }
 
@@ -294,27 +309,302 @@ const char* rtlsdr_rpc_get_device_name
 )
 {
   rtlsdr_rpc_cli_t* const cli = &rtlsdr_rpc_cli;
-
-  rtlsdr_rpc_msg_t q;
-  rtlsdr_rpc_msg_t r;
+  rtlsdr_rpc_msg_t* const q = &cli->query;
+  rtlsdr_rpc_msg_t* const r = &cli->reply;
   const char* s = NULL;
+
+  if (init_cli(cli)) goto on_error;
+
+  rtlsdr_rpc_msg_reset(q);
+  rtlsdr_rpc_msg_set_op(q, RTLSDR_RPC_OP_GET_DEVICE_NAME);
+  if (rtlsdr_rpc_msg_push_uint32(q, index)) goto on_error;
+
+  if (send_recv_msg(cli, q, r)) goto on_error;
+
+  if (rtlsdr_rpc_msg_pop_str(r, &s)) goto on_error;
+  s = strdup(s);
+
+ on_error:
+  return s;
+}
+
+int rtlsdr_rpc_open(rtlsdr_rpc_dev_t** dev, uint32_t index)
+{
+  rtlsdr_rpc_cli_t* const cli = &rtlsdr_rpc_cli;
+  rtlsdr_rpc_msg_t* const q = &cli->query;
+  rtlsdr_rpc_msg_t* const r = &cli->reply;
+  int err = -1;
 
   if (init_cli(cli)) goto on_error_0;
 
-  rtlsdr_rpc_msg_init(&q, 0);
-  rtlsdr_rpc_msg_init(&r, 0);
+  *dev = malloc(sizeof(rtlsdr_rpc_dev_t));
+  if (*dev == NULL) goto on_error_0;
 
-  rtlsdr_rpc_msg_set_op(&q, RTLSDR_RPC_OP_GET_DEVICE_NAME);
-  if (rtlsdr_rpc_msg_push_uint32(&q, index)) goto on_error_1;
-  if (send_recv_msg(cli, &q, &r)) goto on_error_1;
+  rtlsdr_rpc_msg_reset(q);
+  rtlsdr_rpc_msg_set_op(q, RTLSDR_RPC_OP_OPEN);
+  if (rtlsdr_rpc_msg_push_uint32(q, index)) goto on_error_1;
 
-  if (rtlsdr_rpc_msg_pop_str(&r, &s)) goto on_error_1;
+  if (send_recv_msg(cli, q, r)) goto on_error_1;
 
-  s = strdup(s);
+  err = rtlsdr_rpc_msg_get_err(r);
+  if (err) goto on_error_1;
+
+  (*dev)->index = index;
+  (*dev)->cli = cli;
 
  on_error_1:
-  rtlsdr_rpc_msg_fini(&r);
-  rtlsdr_rpc_msg_fini(&q);
+  if (err)
+  {
+    free(*dev);
+    *dev = NULL;
+  }
  on_error_0:
-  return s;
+  return err;
+}
+
+int rtlsdr_rpc_close(rtlsdr_rpc_dev_t* dev)
+{
+  rtlsdr_rpc_cli_t* const cli = dev->cli;
+  rtlsdr_rpc_msg_t* const q = &cli->query;
+  rtlsdr_rpc_msg_t* const r = &cli->reply;
+  int err = -1;
+
+  rtlsdr_rpc_msg_reset(q);
+  rtlsdr_rpc_msg_set_op(q, RTLSDR_RPC_OP_CLOSE);
+  if (rtlsdr_rpc_msg_push_uint32(q, dev->index)) goto on_error_0;
+
+  if (send_recv_msg(cli, q, r)) goto on_error_0;
+
+  err = rtlsdr_rpc_msg_get_err(r);
+  if (err) goto on_error_0;
+
+ on_error_0:
+  free(dev);
+  return err;
+}
+
+int rtlsdr_rpc_set_xtal_freq
+(rtlsdr_rpc_dev_t* dev, uint32_t rtl_freq, uint32_t tuner_freq)
+{
+  rtlsdr_rpc_cli_t* const cli = dev->cli;
+  rtlsdr_rpc_msg_t* const q = &cli->query;
+  rtlsdr_rpc_msg_t* const r = &cli->reply;
+  int err = -1;
+
+  rtlsdr_rpc_msg_reset(q);
+  rtlsdr_rpc_msg_set_op(q, RTLSDR_RPC_OP_SET_XTAL_FREQ);
+  if (rtlsdr_rpc_msg_push_uint32(q, dev->index)) goto on_error_0;
+  if (rtlsdr_rpc_msg_push_uint32(q, rtl_freq)) goto on_error_0;
+  if (rtlsdr_rpc_msg_push_uint32(q, tuner_freq)) goto on_error_0;
+
+  if (send_recv_msg(cli, q, r)) goto on_error_0;
+
+  err = rtlsdr_rpc_msg_get_err(r);
+  if (err) goto on_error_0;
+
+ on_error_0:
+  return err;
+}
+
+int rtlsdr_rpc_get_xtal_freq
+(rtlsdr_rpc_dev_t* dev, uint32_t* rtl_freq, uint32_t* tuner_freq)
+{
+  rtlsdr_rpc_cli_t* const cli = dev->cli;
+  rtlsdr_rpc_msg_t* const q = &cli->query;
+  rtlsdr_rpc_msg_t* const r = &cli->reply;
+  int err = -1;
+
+  rtlsdr_rpc_msg_reset(q);
+  rtlsdr_rpc_msg_set_op(q, RTLSDR_RPC_OP_GET_XTAL_FREQ);
+  if (rtlsdr_rpc_msg_push_uint32(q, dev->index)) goto on_error_0;
+
+  if (send_recv_msg(cli, q, r)) goto on_error_0;
+
+  err = rtlsdr_rpc_msg_get_err(r);
+  if (err) goto on_error_0;
+
+  if (rtlsdr_rpc_msg_pop_uint32(r, rtl_freq))
+  {
+    err = -1;
+    goto on_error_0;
+  }
+
+  if (rtlsdr_rpc_msg_pop_uint32(r, tuner_freq))
+  {
+    err = -1;
+    goto on_error_0;
+  }
+
+ on_error_0:
+  return err;
+}
+
+int rtlsdr_rpc_set_center_freq(rtlsdr_rpc_dev_t* dev, uint32_t freq)
+{
+  rtlsdr_rpc_cli_t* const cli = dev->cli;
+  rtlsdr_rpc_msg_t* const q = &cli->query;
+  rtlsdr_rpc_msg_t* const r = &cli->reply;
+  int err = -1;
+
+  rtlsdr_rpc_msg_reset(q);
+  rtlsdr_rpc_msg_set_op(q, RTLSDR_RPC_OP_SET_CENTER_FREQ);
+  if (rtlsdr_rpc_msg_push_uint32(q, dev->index)) goto on_error_0;
+  if (rtlsdr_rpc_msg_push_uint32(q, freq)) goto on_error_0;
+
+  if (send_recv_msg(cli, q, r)) goto on_error_0;
+
+  err = rtlsdr_rpc_msg_get_err(r);
+  if (err) goto on_error_0;
+
+ on_error_0:
+  return err;
+}
+
+uint32_t rtlsdr_rpc_get_center_freq(rtlsdr_rpc_dev_t* dev)
+{
+  rtlsdr_rpc_cli_t* const cli = dev->cli;
+  rtlsdr_rpc_msg_t* const q = &cli->query;
+  rtlsdr_rpc_msg_t* const r = &cli->reply;
+  uint32_t freq = 0;
+
+  rtlsdr_rpc_msg_reset(q);
+  rtlsdr_rpc_msg_set_op(q, RTLSDR_RPC_OP_GET_CENTER_FREQ);
+  if (rtlsdr_rpc_msg_push_uint32(q, dev->index)) goto on_error_0;
+
+  if (send_recv_msg(cli, q, r)) goto on_error_0;
+
+  if (rtlsdr_rpc_msg_get_err(r)) goto on_error_0;
+  if (rtlsdr_rpc_msg_pop_uint32(r, &freq)) goto on_error_0;
+
+ on_error_0:
+  return freq;
+}
+
+int rtlsdr_rpc_set_sample_rate
+(rtlsdr_rpc_dev_t* dev, uint32_t rate)
+{
+  rtlsdr_rpc_cli_t* const cli = dev->cli;
+  rtlsdr_rpc_msg_t* const q = &cli->query;
+  rtlsdr_rpc_msg_t* const r = &cli->reply;
+  int err = -1;
+
+  rtlsdr_rpc_msg_reset(q);
+  rtlsdr_rpc_msg_set_op(q, RTLSDR_RPC_OP_SET_SAMPLE_RATE);
+  if (rtlsdr_rpc_msg_push_uint32(q, dev->index)) goto on_error_0;
+  if (rtlsdr_rpc_msg_push_uint32(q, rate)) goto on_error_0;
+
+  if (send_recv_msg(cli, q, r)) goto on_error_0;
+
+  err = rtlsdr_rpc_msg_get_err(r);
+  if (err) goto on_error_0;
+
+ on_error_0:
+  return err;
+}
+
+uint32_t rtlsdr_get_sample_rate(rtlsdr_rpc_dev_t* dev)
+{
+  rtlsdr_rpc_cli_t* const cli = dev->cli;
+  rtlsdr_rpc_msg_t* const q = &cli->query;
+  rtlsdr_rpc_msg_t* const r = &cli->reply;
+  uint32_t rate = 0;
+
+  rtlsdr_rpc_msg_reset(q);
+  rtlsdr_rpc_msg_set_op(q, RTLSDR_RPC_OP_GET_SAMPLE_RATE);
+  if (rtlsdr_rpc_msg_push_uint32(q, dev->index)) goto on_error_0;
+
+  if (send_recv_msg(cli, q, r)) goto on_error_0;
+
+  if (rtlsdr_rpc_msg_get_err(r)) goto on_error_0;
+  if (rtlsdr_rpc_msg_pop_uint32(r, &rate)) goto on_error_0;
+
+ on_error_0:
+  return rate;
+}
+
+int rtlsdr_rpc_reset_buffer(rtlsdr_rpc_dev_t* dev)
+{
+  rtlsdr_rpc_cli_t* const cli = dev->cli;
+  rtlsdr_rpc_msg_t* const q = &cli->query;
+  rtlsdr_rpc_msg_t* const r = &cli->reply;
+  int err = -1;
+
+  rtlsdr_rpc_msg_reset(q);
+  rtlsdr_rpc_msg_set_op(q, RTLSDR_RPC_OP_RESET_BUFFER);
+  if (rtlsdr_rpc_msg_push_uint32(q, dev->index)) goto on_error_0;
+
+  if (send_recv_msg(cli, q, r)) goto on_error_0;
+
+  err = rtlsdr_rpc_msg_get_err(r);
+  if (err) goto on_error_0;
+
+ on_error_0:
+  return err;
+}
+
+int rtlsdr_rpc_wait_async
+(
+ rtlsdr_rpc_dev_t* dev,
+ rtlsdr_rpc_read_async_cb_t cb, void* ctx
+)
+{
+  /* TODO, not implemented since deprecated */
+
+  return -1;
+}
+
+static volatile unsigned int is_cancel;
+int rtlsdr_rpc_read_async
+(
+ rtlsdr_rpc_dev_t* dev,
+ rtlsdr_rpc_read_async_cb_t cb, void* ctx,
+ uint32_t buf_num, uint32_t buf_len
+)
+{
+  rtlsdr_rpc_cli_t* const cli = dev->cli;
+  rtlsdr_rpc_msg_t* const q = &cli->query;
+  rtlsdr_rpc_msg_t* const r = &cli->reply;
+  size_t size;
+  int err = -1;
+
+  rtlsdr_rpc_msg_reset(q);
+  rtlsdr_rpc_msg_set_op(q, RTLSDR_RPC_OP_READ_ASYNC);
+  if (rtlsdr_rpc_msg_push_uint32(q, dev->index)) goto on_error_0;
+  if (rtlsdr_rpc_msg_push_uint32(q, buf_num)) goto on_error_0;
+  if (rtlsdr_rpc_msg_push_uint32(q, buf_len)) goto on_error_0;
+
+  if (send_recv_msg(cli, q, r)) goto on_error_0;
+
+  err = rtlsdr_rpc_msg_get_err(r);
+  if (err) goto on_error_0;
+
+  cli->is_async_cancel = 0;
+  while (cli->is_async_cancel == 0)
+  {
+    if (recv_msg(cli->sock, r))
+    {
+      err = -1;
+      goto on_error_0;
+    }
+
+    static const size_t off = offsetof(rtlsdr_rpc_fmt_t, data);
+    size = rtlsdr_rpc_msg_get_size(r);
+    size -= off;
+    cb(r->fmt + off, size - off, ctx);
+  }
+
+  rtlsdr_rpc_msg_reset(q);
+  rtlsdr_rpc_msg_set_op(q, RTLSDR_RPC_OP_CANCEL_ASYNC);
+  rtlsdr_rpc_msg_push_uint32(q, dev->index);
+  send_recv_msg(cli, q, r);
+
+ on_error_0:
+  return err;
+}
+
+int rtlsdr_rpc_cancel_async(rtlsdr_rpc_dev_t* dev)
+{
+  rtlsdr_rpc_cli_t* const cli = dev->cli;
+  cli->is_async_cancel = 1;
+  return 0;
 }
