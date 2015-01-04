@@ -101,6 +101,9 @@ int rtlsdr_rpc_get_offset_tuning
 int rtlsdr_rpc_reset_buffer
 (void* dev);
 
+int rtlsdr_rpc_read_sync
+(void* dev, void* buf, int len, int* n_read);
+
 int rtlsdr_rpc_wait_async
 (void* dev, rtlsdr_rpc_read_async_cb_t cb, void* ctx);
 

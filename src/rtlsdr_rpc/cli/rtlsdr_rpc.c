@@ -666,13 +666,9 @@ int rtlsdr_rpc_reset_buffer(void* devp)
   return err;
 }
 
-int rtlsdr_rpc_wait_async
-(
- void* dev,
- rtlsdr_rpc_read_async_cb_t cb, void* ctx
-)
+int rtlsdr_rpc_read_sync
+(void* dev, void* buf, int len, int* n_read)
 {
-  /* not implemented since deprecated */
   ERROR();
   return -1;
 }
@@ -725,6 +721,15 @@ int rtlsdr_rpc_read_async
 
  on_error_0:
   return err;
+}
+
+int rtlsdr_rpc_wait_async
+(
+ void* dev,
+ rtlsdr_rpc_read_async_cb_t cb, void* ctx
+)
+{
+  return rtlsdr_rpc_read_async(dev, cb, ctx, 0, 0);
 }
 
 int rtlsdr_rpc_cancel_async(void* devp)
