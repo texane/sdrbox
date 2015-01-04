@@ -224,36 +224,64 @@ static int recv_all(int fd, uint8_t* buf, size_t size)
   return 0;
 }
 
-static int send_all(int fd, const uint8_t* buf, size_t size)
+static int send_all_check_recv
+(int fd, const uint8_t* buf, size_t size, unsigned int* is_recv)
 {
   ssize_t n;
   fd_set wset;
+  fd_set rset;
+  fd_set* rsetp;
+
+  rsetp = NULL;
+  if (is_recv != NULL) *is_recv = 0;
 
   while (1)
   {
-    errno = 0;
-    n = send(fd, buf, size, 0);
-    if (n <= 0)
-    {
-      if ((errno != EWOULDBLOCK) || (errno != EAGAIN))
-	return -1;
-    }
-    else
-    {
-      size -= (size_t)n;
-      buf += (size_t)n;
-      if (size == 0) break ;
-    }
-
     FD_ZERO(&wset);
     FD_SET(fd, &wset);
-    if (select(fd + 1, NULL, &wset, NULL, NULL) <= 0)
+
+    rsetp = NULL;
+    if ((is_recv != NULL) && (*is_recv == 0))
+    {
+      FD_ZERO(&rset);
+      FD_SET(fd, &rset);
+      rsetp = &rset;
+    }
+
+    if (select(fd + 1, rsetp, &wset, NULL, NULL) <= 0)
     {
       return -1;
+    }
+
+    if ((rsetp != NULL) && FD_ISSET(fd, rsetp))
+    {
+      *is_recv = 1;
+    }
+
+    if (FD_ISSET(fd, &wset))
+    {
+      errno = 0;
+      n = send(fd, buf, size, 0);
+      if (n <= 0)
+      {
+	if ((errno != EWOULDBLOCK) || (errno != EAGAIN))
+	  return -1;
+      }
+      else
+      {
+	size -= (size_t)n;
+	buf += (size_t)n;
+	if (size == 0) break ;
+      }
     }
   }
 
   return 0;
+}
+
+static int send_all(int fd, const uint8_t* buf, size_t size)
+{
+  return send_all_check_recv(fd, buf, size, NULL);
 }
 
 static int recv_msg(int fd, rtlsdr_rpc_msg_t* m)
@@ -310,6 +338,7 @@ static void read_async_cb
   const size_t off = offsetof(rtlsdr_rpc_fmt_t, data);
   rtlsdr_rpc_fmt_t fmt;
   rtlsdr_rpc_msg_t msg;
+  unsigned int is_recv;
 
   if (serv->reply_msg.off)
   {
@@ -324,7 +353,9 @@ static void read_async_cb
   rtlsdr_rpc_msg_set_op(&msg, RTLSDR_RPC_OP_READ_ASYNC);
 
   send_all(serv->cli_sock, (const uint8_t*)&fmt, off);
-  send_all(serv->cli_sock, buf, len);
+  send_all_check_recv(serv->cli_sock, buf, len, &is_recv);
+
+  if (is_recv) rtlsdr_cancel_async(serv->dev);
 }
 
 static int handle_query
@@ -561,15 +592,8 @@ static int handle_query
       rtlsdr_rpc_msg_set_mid(r, rtlsdr_rpc_msg_get_mid(q));
       rtlsdr_rpc_msg_set_err(r, 0);
 
-      err = rtlsdr_read_async
+      rtlsdr_read_async
 	(serv->dev, read_async_cb, serv, buf_num, buf_len);
-      if (err)
-      {
-	ERROR();
-	goto on_error;
-      }
-
-      PRINTF("OUT_OF_ASYNC\n"); fflush(stdout);
 
       /* do not resend reply */
       return 0;
@@ -586,8 +610,8 @@ static int handle_query
 
       if ((serv->dev == NULL) || (serv->did != did)) goto on_error;
 
-      err = rtlsdr_cancel_async(serv->dev);
-      if (err) goto on_error;
+      /* already cancelled if here */
+      err = 0;
 
       break ;
     }
