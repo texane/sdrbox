@@ -323,6 +323,7 @@ const char* rtlsdr_rpc_get_device_name
   if (send_recv_msg(cli, q, r)) goto on_error;
 
   if (rtlsdr_rpc_msg_pop_str(r, &s)) goto on_error;
+  /* TODO: memory leak here */
   s = strdup(s);
 
  on_error:
@@ -768,10 +769,40 @@ int rtlsdr_rpc_reset_buffer(void* devp)
 }
 
 int rtlsdr_rpc_read_sync
-(void* dev, void* buf, int len, int* n_read)
+(void* devp, void* buf, int len, int* n_read)
 {
-  UNIMPL();
-  return -1;
+  rtlsdr_rpc_dev_t* const dev = devp;
+  rtlsdr_rpc_cli_t* const cli = dev->cli;
+  rtlsdr_rpc_msg_t* const q = &cli->query;
+  rtlsdr_rpc_msg_t* const r = &cli->reply;
+  const uint8_t* tmp;
+  size_t size;
+  int err = -1;
+
+  rtlsdr_rpc_msg_reset(q);
+  rtlsdr_rpc_msg_set_op(q, RTLSDR_RPC_OP_READ_SYNC);
+  if (rtlsdr_rpc_msg_push_uint32(q, dev->index)) goto on_error;
+  if (rtlsdr_rpc_msg_push_uint32(q, (uint32_t)len)) goto on_error;
+
+  if (send_recv_msg(cli, q, r)) goto on_error;
+
+  err = rtlsdr_rpc_msg_get_err(r);
+  if (err) goto on_error;
+
+  if (rtlsdr_rpc_msg_pop_buf(r, &tmp, &size))
+  {
+    err = -1;
+    goto on_error;
+  }
+
+  if (size > (size_t)len) size = len;
+
+  memcpy(buf, tmp, size);
+
+  *n_read = (int)size;
+
+ on_error:
+  return err;
 }
 
 static volatile unsigned int is_cancel;

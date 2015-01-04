@@ -127,11 +127,30 @@ int rtlsdr_rpc_msg_push_uint32(rtlsdr_rpc_msg_t* msg, uint32_t x)
   return 0;
 }
 
+void rtlsdr_rpc_msg_push_uint32_safe(rtlsdr_rpc_msg_t* msg, uint32_t x)
+{
+  push_uint32_safe(msg, x);
+}
+
 int rtlsdr_rpc_msg_push_str(rtlsdr_rpc_msg_t* msg, const char* s)
 {
   if (check_size_or_realloc(msg, strlen(s) + 1)) return -1;
   push_mem_safe(msg, (const uint8_t*)s, strlen(s) + 1);
   return 0;
+}
+
+int rtlsdr_rpc_msg_push_buf(rtlsdr_rpc_msg_t* msg, const uint8_t* buf, size_t size)
+{
+  size_t total_size = sizeof(uint32_t) + size;
+  if (check_size_or_realloc(msg, total_size)) return -1;
+  push_uint32_safe(msg, (uint32_t)size);
+  push_mem_safe(msg, buf, size);
+  return 0;
+}
+
+void rtlsdr_rpc_msg_skip_safe(rtlsdr_rpc_msg_t* msg, size_t size)
+{
+  msg->off += size;
 }
 
 int rtlsdr_rpc_msg_pop_int(rtlsdr_rpc_msg_t* msg, int* x)
@@ -160,6 +179,22 @@ int rtlsdr_rpc_msg_pop_str(rtlsdr_rpc_msg_t* msg, const char** s)
   }
 
   return -1;
+}
+
+int rtlsdr_rpc_msg_pop_buf
+(rtlsdr_rpc_msg_t* msg, const uint8_t** buf, size_t* size)
+{
+  uint32_t x;
+
+  if (pop_uint32(msg, &x)) return -1;
+  if ((msg->off + x) > msg->size) return -1;
+
+  *buf = (const uint8_t*)(msg->fmt + msg->off);
+  msg->off += x;
+
+  *size = (size_t)x;
+
+  return 0;
 }
 
 static void put_uint8(void* p, uint8_t x)

@@ -81,10 +81,14 @@ int rtlsdr_rpc_msg_get_err(const rtlsdr_rpc_msg_t*);
 
 int rtlsdr_rpc_msg_push_int32(rtlsdr_rpc_msg_t*, int32_t);
 int rtlsdr_rpc_msg_push_uint32(rtlsdr_rpc_msg_t*, uint32_t);
+void rtlsdr_rpc_msg_push_uint32_safe(rtlsdr_rpc_msg_t*, uint32_t);
 int rtlsdr_rpc_msg_push_str(rtlsdr_rpc_msg_t*, const char*);
+int rtlsdr_rpc_msg_push_buf(rtlsdr_rpc_msg_t*, const uint8_t*, size_t);
+void rtlsdr_rpc_msg_skip_safe(rtlsdr_rpc_msg_t*, size_t);
 int rtlsdr_rpc_msg_pop_int32(rtlsdr_rpc_msg_t*, int32_t*);
 int rtlsdr_rpc_msg_pop_uint32(rtlsdr_rpc_msg_t*, uint32_t*);
 int rtlsdr_rpc_msg_pop_str(rtlsdr_rpc_msg_t*, const char**);
+int rtlsdr_rpc_msg_pop_buf(rtlsdr_rpc_msg_t*, const uint8_t**, size_t*);
 
 
 #endif /* RTLSDR_RPC_MSG_H_INCLUDED */

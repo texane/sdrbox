@@ -573,7 +573,7 @@ static int handle_query
       uint32_t did;
       uint32_t ppm;
 
-      PRINTF("get_freq_correction()\n");
+      PRINTF("set_freq_correction()\n");
 
       if (rtlsdr_rpc_msg_pop_uint32(q, &did)) goto on_error;
       if (rtlsdr_rpc_msg_pop_uint32(q, &ppm)) goto on_error;
@@ -727,6 +727,32 @@ static int handle_query
 
       /* already cancelled if here */
       err = 0;
+
+      break ;
+    }
+
+  case RTLSDR_RPC_OP_READ_SYNC:
+    {
+      uint32_t did;
+      uint32_t len;
+      int n_read;
+      uint8_t* buf;
+      size_t new_size;
+
+      if (rtlsdr_rpc_msg_pop_uint32(q, &did)) goto on_error;
+      if (rtlsdr_rpc_msg_pop_uint32(q, &len)) goto on_error;
+
+      if ((rpcd->dev == NULL) || (rpcd->did != did)) goto on_error;
+
+      new_size = r->off + sizeof(uint32_t) + len;
+      if (rtlsdr_rpc_msg_realloc(r, new_size)) goto on_error;
+      buf = r->fmt + r->off + sizeof(uint32_t);
+
+      err = rtlsdr_read_sync(rpcd->dev, buf, (int)len, &n_read);
+      if (err) goto on_error;
+
+      rtlsdr_rpc_msg_push_uint32_safe(r, (uint32_t)n_read);
+      rtlsdr_rpc_msg_skip_safe(r, (size_t)n_read);
 
       break ;
     }
