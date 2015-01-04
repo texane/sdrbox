@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stddef.h>
-#include "rtlsdr_rpc_common.h"
+#include "rtlsdr_rpc_msg.h"
 
 #if 1
 #include <stdio.h>
