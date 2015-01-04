@@ -10,7 +10,7 @@ static void async_cb(unsigned char* buf, uint32_t len, void* p)
   printf("async_cb %u\n", len);
 }
 
-static rtlsdr_rpc_dev_t* gdev;
+static void* gdev;
 static void on_sigint(int x)
 {
   rtlsdr_rpc_cancel_async(gdev);
@@ -18,7 +18,7 @@ static void on_sigint(int x)
 
 int main(int ac, char** av)
 {
-  rtlsdr_rpc_dev_t* dev;
+  void* dev;
   uint32_t i;
   uint32_t n;
 

@@ -340,17 +340,20 @@ int rtlsdr_rpc_get_index_by_serial(const char* serial)
   return -1;
 }
 
-int rtlsdr_rpc_open(rtlsdr_rpc_dev_t** dev, uint32_t index)
+int rtlsdr_rpc_open(void** devp, uint32_t index)
 {
   rtlsdr_rpc_cli_t* const cli = &rtlsdr_rpc_cli;
   rtlsdr_rpc_msg_t* const q = &cli->query;
   rtlsdr_rpc_msg_t* const r = &cli->reply;
+  rtlsdr_rpc_dev_t* dev;
   int err = -1;
+
+  *devp = NULL;
 
   if (init_cli(cli)) goto on_error_0;
 
-  *dev = malloc(sizeof(rtlsdr_rpc_dev_t));
-  if (*dev == NULL) goto on_error_0;
+  dev = malloc(sizeof(rtlsdr_rpc_dev_t));
+  if (dev == NULL) goto on_error_0;
 
   rtlsdr_rpc_msg_reset(q);
   rtlsdr_rpc_msg_set_op(q, RTLSDR_RPC_OP_OPEN);
@@ -361,21 +364,19 @@ int rtlsdr_rpc_open(rtlsdr_rpc_dev_t** dev, uint32_t index)
   err = rtlsdr_rpc_msg_get_err(r);
   if (err) goto on_error_1;
 
-  (*dev)->index = index;
-  (*dev)->cli = cli;
+  dev->index = index;
+  dev->cli = cli;
+  *devp = dev;
 
  on_error_1:
-  if (err)
-  {
-    free(*dev);
-    *dev = NULL;
-  }
+  if (err) free(dev);
  on_error_0:
   return err;
 }
 
-int rtlsdr_rpc_close(rtlsdr_rpc_dev_t* dev)
+int rtlsdr_rpc_close(void* devp)
 {
+  rtlsdr_rpc_dev_t* const dev = devp;
   rtlsdr_rpc_cli_t* const cli = dev->cli;
   rtlsdr_rpc_msg_t* const q = &cli->query;
   rtlsdr_rpc_msg_t* const r = &cli->reply;
@@ -396,8 +397,9 @@ int rtlsdr_rpc_close(rtlsdr_rpc_dev_t* dev)
 }
 
 int rtlsdr_rpc_set_xtal_freq
-(rtlsdr_rpc_dev_t* dev, uint32_t rtl_freq, uint32_t tuner_freq)
+(void* devp, uint32_t rtl_freq, uint32_t tuner_freq)
 {
+  rtlsdr_rpc_dev_t* const dev = devp;
   rtlsdr_rpc_cli_t* const cli = dev->cli;
   rtlsdr_rpc_msg_t* const q = &cli->query;
   rtlsdr_rpc_msg_t* const r = &cli->reply;
@@ -419,8 +421,9 @@ int rtlsdr_rpc_set_xtal_freq
 }
 
 int rtlsdr_rpc_get_xtal_freq
-(rtlsdr_rpc_dev_t* dev, uint32_t* rtl_freq, uint32_t* tuner_freq)
+(void* devp, uint32_t* rtl_freq, uint32_t* tuner_freq)
 {
+  rtlsdr_rpc_dev_t* const dev = devp;
   rtlsdr_rpc_cli_t* const cli = dev->cli;
   rtlsdr_rpc_msg_t* const q = &cli->query;
   rtlsdr_rpc_msg_t* const r = &cli->reply;
@@ -452,28 +455,29 @@ int rtlsdr_rpc_get_xtal_freq
 }
 
 int rtlsdr_rpc_get_usb_strings
-(rtlsdr_rpc_dev_t* dev, char* manufact, char* product, char* serial)
+(void* dev, char* manufact, char* product, char* serial)
 {
   ERROR();
   return -1;
 }
 
 int rtlsdr_rpc_write_eeprom
-(rtlsdr_rpc_dev_t* dev, uint8_t* data, uint8_t offset, uint16_t len)
+(void* dev, uint8_t* data, uint8_t offset, uint16_t len)
 {
   ERROR();
   return -1;
 }
 
 int rtlsdr_rpc_read_eeprom
-(rtlsdr_rpc_dev_t* dev, uint8_t* data, uint8_t offset, uint16_t len)
+(void* dev, uint8_t* data, uint8_t offset, uint16_t len)
 {
   ERROR();
   return -1;
 }
 
-int rtlsdr_rpc_set_center_freq(rtlsdr_rpc_dev_t* dev, uint32_t freq)
+int rtlsdr_rpc_set_center_freq(void* devp, uint32_t freq)
 {
+  rtlsdr_rpc_dev_t* const dev = devp;
   rtlsdr_rpc_cli_t* const cli = dev->cli;
   rtlsdr_rpc_msg_t* const q = &cli->query;
   rtlsdr_rpc_msg_t* const r = &cli->reply;
@@ -493,8 +497,9 @@ int rtlsdr_rpc_set_center_freq(rtlsdr_rpc_dev_t* dev, uint32_t freq)
   return err;
 }
 
-uint32_t rtlsdr_rpc_get_center_freq(rtlsdr_rpc_dev_t* dev)
+uint32_t rtlsdr_rpc_get_center_freq(void* devp)
 {
+  rtlsdr_rpc_dev_t* const dev = devp;
   rtlsdr_rpc_cli_t* const cli = dev->cli;
   rtlsdr_rpc_msg_t* const q = &cli->query;
   rtlsdr_rpc_msg_t* const r = &cli->reply;
@@ -513,56 +518,57 @@ uint32_t rtlsdr_rpc_get_center_freq(rtlsdr_rpc_dev_t* dev)
   return freq;
 }
 
-int rtlsdr_rpc_set_freq_correction(rtlsdr_rpc_dev_t* dev, int ppm)
+int rtlsdr_rpc_set_freq_correction(void* dev, int ppm)
 {
   ERROR();
   return -1;
 }
 
-int rtlsdr_rpc_get_freq_correction(rtlsdr_rpc_dev_t* dev)
+int rtlsdr_rpc_get_freq_correction(void* dev)
 {
   ERROR();
   return 0;
 }
 
-int rtlsdr_rpc_get_tuner_type(rtlsdr_rpc_dev_t* dev)
+int rtlsdr_rpc_get_tuner_type(void* dev)
 {
   ERROR();
   return -1;
 }
 
-int rtlsdr_rpc_get_tuner_gains(rtlsdr_rpc_dev_t* dev, int* gainsp)
+int rtlsdr_rpc_get_tuner_gains(void* dev, int* gainsp)
 {
   ERROR();
   return -1;
 }
 
-int rtlsdr_rpc_set_tuner_gain(rtlsdr_rpc_dev_t* dev, int gain)
+int rtlsdr_rpc_set_tuner_gain(void* dev, int gain)
 {
   ERROR();
   return -1;
 }
 
-int rtlsdr_rpc_get_tuner_gain(rtlsdr_rpc_dev_t* dev)
+int rtlsdr_rpc_get_tuner_gain(void* dev)
 {
   ERROR();
   return -1;
 }
 
-int rtlsdr_rpc_set_tuner_if_gain(rtlsdr_rpc_dev_t* dev, int stage, int gain)
+int rtlsdr_rpc_set_tuner_if_gain(void* dev, int stage, int gain)
 {
   ERROR();
   return -1;
 }
 
-int rtlsdr_rpc_set_tuner_gain_mode(rtlsdr_rpc_dev_t* dev, int manual)
+int rtlsdr_rpc_set_tuner_gain_mode(void* dev, int manual)
 {
   ERROR();
   return -1;
 }
 
-int rtlsdr_rpc_set_sample_rate(rtlsdr_rpc_dev_t* dev, uint32_t rate)
+int rtlsdr_rpc_set_sample_rate(void* devp, uint32_t rate)
 {
+  rtlsdr_rpc_dev_t* const dev = devp;
   rtlsdr_rpc_cli_t* const cli = dev->cli;
   rtlsdr_rpc_msg_t* const q = &cli->query;
   rtlsdr_rpc_msg_t* const r = &cli->reply;
@@ -582,8 +588,9 @@ int rtlsdr_rpc_set_sample_rate(rtlsdr_rpc_dev_t* dev, uint32_t rate)
   return err;
 }
 
-uint32_t rtlsdr_rpc_get_sample_rate(rtlsdr_rpc_dev_t* dev)
+uint32_t rtlsdr_rpc_get_sample_rate(void* devp)
 {
+  rtlsdr_rpc_dev_t* const dev = devp;
   rtlsdr_rpc_cli_t* const cli = dev->cli;
   rtlsdr_rpc_msg_t* const q = &cli->query;
   rtlsdr_rpc_msg_t* const r = &cli->reply;
@@ -602,44 +609,45 @@ uint32_t rtlsdr_rpc_get_sample_rate(rtlsdr_rpc_dev_t* dev)
   return rate;
 }
 
-int rtlsdr_rpc_set_testmode(rtlsdr_rpc_dev_t* dev, int on)
+int rtlsdr_rpc_set_testmode(void* dev, int on)
 {
   ERROR();
   return -1;
 }
 
-int rtlsdr_rpc_set_agc_mode(rtlsdr_rpc_dev_t* dev, int on)
+int rtlsdr_rpc_set_agc_mode(void* dev, int on)
 {
   ERROR();
   return -1;
 }
 
-int rtlsdr_rpc_set_direct_sampling(rtlsdr_rpc_dev_t* dev, int on)
+int rtlsdr_rpc_set_direct_sampling(void* dev, int on)
 {
   ERROR();
   return -1;
 }
 
-int rtlsdr_rpc_get_direct_sampling(rtlsdr_rpc_dev_t* dev)
+int rtlsdr_rpc_get_direct_sampling(void* dev)
 {
   ERROR();
   return -1;
 }
 
-int rtlsdr_rpc_set_offset_tuning(rtlsdr_rpc_dev_t* dev, int on)
+int rtlsdr_rpc_set_offset_tuning(void* dev, int on)
 {
   ERROR();
   return -1;
 }
 
-int rtlsdr_rpc_get_offset_tuning(rtlsdr_rpc_dev_t* dev)
+int rtlsdr_rpc_get_offset_tuning(void* dev)
 {
   ERROR();
   return -1;
 }
 
-int rtlsdr_rpc_reset_buffer(rtlsdr_rpc_dev_t* dev)
+int rtlsdr_rpc_reset_buffer(void* devp)
 {
+  rtlsdr_rpc_dev_t* const dev = devp;
   rtlsdr_rpc_cli_t* const cli = dev->cli;
   rtlsdr_rpc_msg_t* const q = &cli->query;
   rtlsdr_rpc_msg_t* const r = &cli->reply;
@@ -660,7 +668,7 @@ int rtlsdr_rpc_reset_buffer(rtlsdr_rpc_dev_t* dev)
 
 int rtlsdr_rpc_wait_async
 (
- rtlsdr_rpc_dev_t* dev,
+ void* dev,
  rtlsdr_rpc_read_async_cb_t cb, void* ctx
 )
 {
@@ -672,11 +680,12 @@ int rtlsdr_rpc_wait_async
 static volatile unsigned int is_cancel;
 int rtlsdr_rpc_read_async
 (
- rtlsdr_rpc_dev_t* dev,
+ void* devp,
  rtlsdr_rpc_read_async_cb_t cb, void* ctx,
  uint32_t buf_num, uint32_t buf_len
 )
 {
+  rtlsdr_rpc_dev_t* const dev = devp;
   rtlsdr_rpc_cli_t* const cli = dev->cli;
   rtlsdr_rpc_msg_t* const q = &cli->query;
   rtlsdr_rpc_msg_t* const r = &cli->reply;
@@ -718,8 +727,9 @@ int rtlsdr_rpc_read_async
   return err;
 }
 
-int rtlsdr_rpc_cancel_async(rtlsdr_rpc_dev_t* dev)
+int rtlsdr_rpc_cancel_async(void* devp)
 {
+  rtlsdr_rpc_dev_t* const dev = devp;
   rtlsdr_rpc_cli_t* const cli = dev->cli;
   cli->is_async_cancel = 1;
   return 0;
@@ -727,5 +737,8 @@ int rtlsdr_rpc_cancel_async(rtlsdr_rpc_dev_t* dev)
 
 unsigned int rtlsdr_rpc_is_enabled(void)
 {
-  return getenv("RTLSDR_RPC_IS_ENABLED") != NULL;
+  static unsigned int is_enabled = (unsigned int)-1;
+  if (is_enabled == (unsigned int)-1)
+    is_enabled = (getenv("RTLSDR_RPC_IS_ENABLED") != NULL);
+  return is_enabled;
 }
