@@ -13,7 +13,6 @@
 #include <sys/time.h>
 #include <netinet/in.h>
 #include <netdb.h>
-#include <pthread.h>
 #include <rtl-sdr.h>
 #include "../common/rtlsdr_rpc.h"
 
@@ -410,7 +409,11 @@ static int handle_query
 
       if (rtlsdr_rpc_msg_pop_uint32(q, &serv->did)) goto on_error;
       err = rtlsdr_open(&serv->dev, serv->did);
-      if (err) serv->dev = NULL;
+      if (err)
+      {
+	serv->dev = NULL;
+	goto on_error;
+      }
 
       break ;
     }
