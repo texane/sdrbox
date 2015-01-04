@@ -65,7 +65,7 @@ int main(int ac, char** av)
     rtlsdr_rpc_set_center_freq(dev, 120000000);
     rtlsdr_rpc_set_sample_rate(dev, 300000);
     gdev = dev;
-    rtlsdr_rpc_read_async(dev, async_cb, NULL, 8, 8 * 1024);
+    rtlsdr_rpc_read_async(dev, async_cb, NULL, 8, 64 * 1024);
     rtlsdr_rpc_close(dev);
   }
 

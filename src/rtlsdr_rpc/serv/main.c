@@ -321,7 +321,7 @@ static void read_async_cb
   msg.size = off + len;
   msg.fmt = (uint8_t*)&fmt;
   rtlsdr_rpc_msg_set_size(&msg, msg.size);
-  rtlsdr_rpc_msg_set_op(&msg, RTLSDR_RPC_OP_EVENT_DATA);
+  rtlsdr_rpc_msg_set_op(&msg, RTLSDR_RPC_OP_READ_ASYNC);
 
   send_all(serv->cli_sock, (const uint8_t*)&fmt, off);
   send_all(serv->cli_sock, buf, len);
@@ -682,10 +682,10 @@ int main(int ac, char** av)
   const char* addr;
   const char* port;
 
-  addr = getenv("RTLSDR_SERV_ADDR");
+  addr = getenv("RTLSDR_RPC_SERV_ADDR");
   if (addr == NULL) addr = "127.0.0.1";
 
-  port = getenv("RTLSDR_SERV_PORT");
+  port = getenv("RTLSDR_RPC_SERV_PORT");
   if (port == NULL) port = "40000";
 
   if (init_serv(&serv, addr, port)) return -1;

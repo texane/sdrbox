@@ -124,10 +124,10 @@ static int init_cli(rtlsdr_rpc_cli_t* cli)
 
   if (cli->is_init) return 0;
 
-  addr = getenv("RTLSDR_SERV_ADDR");
+  addr = getenv("RTLSDR_RPC_SERV_ADDR");
   if (addr == NULL) addr = "127.0.0.1";
 
-  port = getenv("RTLSDR_SERV_PORT");
+  port = getenv("RTLSDR_RPC_SERV_PORT");
   if (port == NULL) port = "40000";
 
   if (resolve_ip_addr(saddrs, sizes, addr, port))
@@ -589,7 +589,6 @@ int rtlsdr_rpc_read_async
 
     static const size_t off = offsetof(rtlsdr_rpc_fmt_t, data);
     size = rtlsdr_rpc_msg_get_size(r);
-    size -= off;
     cb(r->fmt + off, size - off, ctx);
   }
 
@@ -607,4 +606,9 @@ int rtlsdr_rpc_cancel_async(rtlsdr_rpc_dev_t* dev)
   rtlsdr_rpc_cli_t* const cli = dev->cli;
   cli->is_async_cancel = 1;
   return 0;
+}
+
+unsigned int rtlsdr_rpc_is_enabled(void)
+{
+  return getenv("RTLSDR_RPC_IS_ENABLED") != NULL;
 }

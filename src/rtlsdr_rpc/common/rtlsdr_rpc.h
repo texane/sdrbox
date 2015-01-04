@@ -44,8 +44,7 @@ typedef enum
 
   /* non api operations */
   RTLSDR_RPC_OP_EVENT_STATE,
-  RTLSDR_RPC_OP_EVENT_DATA,
-
+ 
   RTLSDR_RPC_OP_INVALID
 } rtlsdr_rpc_op_t;
 
