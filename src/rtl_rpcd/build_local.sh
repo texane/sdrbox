@@ -5,7 +5,7 @@ CROSS_COMPILE=
 RTLSDR_RPC_DIR=/home/texane/repo/librtlsdr
 
 $CROSS_COMPILE\gcc \
--static -Wall -O2 \
+-static -Wall -O2 -ggdb \
 -I$RTLSDR_RPC_DIR/include \
 -o rtl_rpcd.local \
 $RTLSDR_RPC_DIR/src/rtl_rpcd.c \
